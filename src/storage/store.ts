@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { Reminder, ReminderStatus, ReminderStore } from "./types.js";
+import type { Nudge, NudgeStatus, NudgeStore } from "./types.js";
 
 const DATA_DIR = join(homedir(), ".nudge");
-const DATA_FILE = join(DATA_DIR, "reminders.json");
+const DATA_FILE = join(DATA_DIR, "nudges.json");
 
 function ensureDataDir(): void {
   if (!existsSync(DATA_DIR)) {
@@ -12,44 +12,44 @@ function ensureDataDir(): void {
   }
 }
 
-function readStore(): ReminderStore {
+function readStore(): NudgeStore {
   ensureDataDir();
   if (!existsSync(DATA_FILE)) {
-    return { reminders: [] };
+    return { nudges: [] };
   }
   const raw = readFileSync(DATA_FILE, "utf-8");
-  return JSON.parse(raw) as ReminderStore;
+  return JSON.parse(raw) as NudgeStore;
 }
 
-function writeStore(store: ReminderStore): void {
+function writeStore(store: NudgeStore): void {
   ensureDataDir();
   writeFileSync(DATA_FILE, JSON.stringify(store, null, 2), "utf-8");
 }
 
-export function createReminder(
-  reminder: Omit<Reminder, "id" | "created" | "status" | "completed_at">
-): Reminder {
+export function createNudge(
+  nudge: Omit<Nudge, "id" | "created" | "status" | "completed_at">
+): Nudge {
   const store = readStore();
-  const entry: Reminder = {
+  const entry: Nudge = {
     id: crypto.randomUUID(),
     created: new Date().toISOString(),
     status: "active",
     completed_at: null,
-    ...reminder,
+    ...nudge,
   };
-  store.reminders.push(entry);
+  store.nudges.push(entry);
   writeStore(store);
   return entry;
 }
 
-export function listReminders(options?: {
-  status?: ReminderStatus;
+export function listNudges(options?: {
+  status?: NudgeStatus;
   overdueOnly?: boolean;
-}): Reminder[] {
+}): Nudge[] {
   const store = readStore();
   const now = new Date();
 
-  let results = store.reminders;
+  let results = store.nudges;
 
   if (options?.status) {
     results = results.filter((r) => r.status === options.status);
@@ -69,23 +69,23 @@ export function listReminders(options?: {
   return results;
 }
 
-export function completeReminder(
+export function completeNudge(
   id: string
-): { success: true; reminder: Reminder } | { success: false; error: string } {
+): { success: true; nudge: Nudge } | { success: false; error: string } {
   const store = readStore();
-  const reminder = store.reminders.find((r) => r.id === id);
+  const nudge = store.nudges.find((r) => r.id === id);
 
-  if (!reminder) {
-    return { success: false, error: `No reminder found with id: ${id}` };
+  if (!nudge) {
+    return { success: false, error: `No nudge found with id: ${id}` };
   }
 
-  if (reminder.status === "completed") {
-    return { success: false, error: `Reminder is already completed` };
+  if (nudge.status === "completed") {
+    return { success: false, error: `Nudge is already completed` };
   }
 
-  reminder.status = "completed";
-  reminder.completed_at = new Date().toISOString();
+  nudge.status = "completed";
+  nudge.completed_at = new Date().toISOString();
   writeStore(store);
 
-  return { success: true, reminder };
+  return { success: true, nudge };
 }

@@ -2,12 +2,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod/v4";
 import {
-  createReminder,
-  listReminders,
-  completeReminder,
+  createNudge,
+  listNudges,
+  completeNudge,
 } from "../storage/store.js";
 import { URGENCY_LEVELS } from "../storage/types.js";
-import type { Reminder } from "../storage/types.js";
+import type { Nudge } from "../storage/types.js";
 
 const server = new McpServer({
   name: "nudge",
@@ -16,15 +16,15 @@ const server = new McpServer({
 
 // --- Helpers ---
 
-function formatReminder(r: Reminder): string {
+function formatNudge(n: Nudge): string {
   const now = new Date();
-  const due = new Date(r.due);
+  const due = new Date(n.due);
   const diffMs = due.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
   let dueLabel: string;
-  if (r.status === "completed") {
-    dueLabel = `completed ${r.completed_at}`;
+  if (n.status === "completed") {
+    dueLabel = `completed ${n.completed_at}`;
   } else if (diffDays < 0) {
     dueLabel = `OVERDUE by ${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? "" : "s"}`;
   } else if (diffDays === 0) {
@@ -36,19 +36,19 @@ function formatReminder(r: Reminder): string {
   }
 
   return [
-    `- [${r.urgency.toUpperCase()}] ${r.message}`,
-    `  ${dueLabel} (due: ${r.due})`,
-    `  id: ${r.id}`,
+    `- [${n.urgency.toUpperCase()}] ${n.message}`,
+    `  ${dueLabel} (due: ${n.due})`,
+    `  id: ${n.id}`,
   ].join("\n");
 }
 
 // --- Tools ---
 
 server.registerTool(
-  "reminder_set",
+  "nudge_set",
   {
     description:
-      "Create a new reminder. Use this when the user wants to be reminded about something — a commitment, deadline, or task they don't want to forget. The due date must be an ISO 8601 date string.",
+      "Create a new nudge. Use this when the user wants to be reminded about something — a commitment, deadline, or task they don't want to forget. The due date must be an ISO 8601 date string.",
     inputSchema: z.object({
       message: z.string().describe("What to be reminded about"),
       due: z
@@ -60,12 +60,12 @@ server.registerTool(
         .enum(URGENCY_LEVELS)
         .default("medium")
         .describe(
-          "How aggressively to surface this reminder. low = passive (only mentioned when overdue), medium = listed at session start when due/overdue, high = leads the session when due/overdue"
+          "How aggressively to surface this nudge. low = passive (only mentioned when overdue), medium = listed at session start when due/overdue, high = leads the session when due/overdue"
         ),
     }),
   },
   async (input) => {
-    const reminder = createReminder({
+    const nudge = createNudge({
       message: input.message,
       due: input.due,
       urgency: input.urgency,
@@ -75,7 +75,7 @@ server.registerTool(
       content: [
         {
           type: "text" as const,
-          text: `Reminder created.\n\n${formatReminder(reminder)}`,
+          text: `Nudge created.\n\n${formatNudge(nudge)}`,
         },
       ],
     };
@@ -83,30 +83,30 @@ server.registerTool(
 );
 
 server.registerTool(
-  "reminder_list",
+  "nudge_list",
   {
     description:
-      "List reminders. Call this at the start of every session to check for due or overdue reminders. Can also be called when the user asks about their reminders.",
+      "List nudges. Call this at the start of every session to check for due or overdue nudges. Can also be called when the user asks about their nudges.",
     inputSchema: z.object({
       status: z
         .enum(["active", "completed"])
         .optional()
         .describe(
-          "Filter by status. Defaults to showing active reminders only."
+          "Filter by status. Defaults to showing active nudges only."
         ),
       overdue_only: z
         .boolean()
         .optional()
-        .describe("If true, only return overdue active reminders"),
+        .describe("If true, only return overdue active nudges"),
     }),
   },
   async (input) => {
-    const reminders = listReminders({
+    const nudges = listNudges({
       status: input.status ?? "active",
       overdueOnly: input.overdue_only,
     });
 
-    if (reminders.length === 0) {
+    if (nudges.length === 0) {
       const qualifier = input.overdue_only
         ? "overdue "
         : input.status === "completed"
@@ -116,14 +116,14 @@ server.registerTool(
         content: [
           {
             type: "text" as const,
-            text: `No ${qualifier}reminders found.`,
+            text: `No ${qualifier}nudges found.`,
           },
         ],
       };
     }
 
-    const formatted = reminders.map(formatReminder).join("\n\n");
-    const summary = `Found ${reminders.length} reminder${reminders.length === 1 ? "" : "s"}:\n\n${formatted}`;
+    const formatted = nudges.map(formatNudge).join("\n\n");
+    const summary = `Found ${nudges.length} nudge${nudges.length === 1 ? "" : "s"}:\n\n${formatted}`;
 
     return {
       content: [
@@ -137,23 +137,23 @@ server.registerTool(
 );
 
 server.registerTool(
-  "reminder_complete",
+  "nudge_complete",
   {
     description:
-      "Mark a reminder as completed. Use this when the user has done what they committed to.",
+      "Mark a nudge as completed. Use this when the user has done what they committed to.",
     inputSchema: z.object({
-      id: z.string().describe("The ID of the reminder to complete"),
+      id: z.string().describe("The ID of the nudge to complete"),
     }),
   },
   async (input) => {
-    const result = completeReminder(input.id);
+    const result = completeNudge(input.id);
 
     if (!result.success) {
       return {
         content: [
           {
             type: "text" as const,
-            text: `Failed to complete reminder: ${result.error}`,
+            text: `Failed to complete nudge: ${result.error}`,
           },
         ],
       };
@@ -163,7 +163,7 @@ server.registerTool(
       content: [
         {
           type: "text" as const,
-          text: `Reminder completed.\n\n${formatReminder(result.reminder)}`,
+          text: `Nudge completed.\n\n${formatNudge(result.nudge)}`,
         },
       ],
     };
