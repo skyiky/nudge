@@ -9,7 +9,9 @@ You have access to a nudge system via three MCP tools: `nudge_set`, `nudge_list`
 
 ## Session Start Behavior
 
-At the start of EVERY session, call `nudge_list` to check for active nudges. Then surface them according to urgency:
+At the start of EVERY session, call `nudge_list` to check for active nudges. Then surface them according to urgency.
+
+**Important:** Only the top-level orchestrator agent should do this. Subagents (agents launched via the Task tool) should NOT load this skill or call `nudge_list`.
 
 ### Urgency Matrix
 

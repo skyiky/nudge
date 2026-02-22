@@ -55,6 +55,16 @@ cd nudge && bun install
 cp -r skills/nudge ~/.config/opencode/skills/nudge
 ```
 
+4. Add session-start trigger to `~/.config/opencode/AGENTS.md` (recommended):
+
+```markdown
+## Session Start
+
+At the start of EVERY session, before responding to the user's first message, load the `nudge` skill and call `nudge_list` to check for due or overdue nudges. Surface them according to the skill's urgency rules. Subagents (agents launched via the Task tool) should NOT load the nudge skill or call `nudge_list`.
+```
+
+Without this step, the skill is installed but the agent won't reliably load it at session start. The `AGENTS.md` file provides instructions that run before every session.
+
 ## Storage
 
 All data lives in `~/.nudge/nudges.json`. The file is created on first use. You can read, edit, or delete it directly.
